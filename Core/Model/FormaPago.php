@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2013-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2013-2020 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -17,6 +17,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 namespace FacturaScripts\Core\Model;
+
+use FacturaScripts\Dinamic\Model\CuentaBanco as DinCuentaBanco;
 
 /**
  * Payment method of an invoice, delivery note, order or estimation.
@@ -108,6 +110,18 @@ class FormaPago extends Base\ModelClass
         }
 
         return parent::delete();
+    }
+
+    /**
+     * Return the the banck account.
+     *
+     * @return DinCuentaBanco
+     */
+    public function getBankAccount()
+    {
+        $bank = new DinCuentaBanco();
+        $bank->loadFromCode($this->codcuentabanco);
+        return $bank;
     }
 
     /**

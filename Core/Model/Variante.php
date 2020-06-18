@@ -84,6 +84,12 @@ class Variante extends Base\ModelClass
     public $idvariante;
 
     /**
+     *
+     * @var float
+     */
+    public $margen;
+
+    /**
      * Price of the variant. Without tax.
      *
      * @var int|float
@@ -111,18 +117,20 @@ class Variante extends Base\ModelClass
     {
         parent::clear();
         $this->coste = 0.0;
+        $this->margen = 0.0;
         $this->precio = 0.0;
         $this->stockfis = 0.0;
     }
 
     /**
      * 
-     * @param string $query
-     * @param string $fieldcode
+     * @param string          $query
+     * @param string          $fieldcode
+     * @param DataBaseWhere[] $where
      *
      * @return CodeModel[]
      */
-    public function codeModelSearch(string $query, string $fieldcode = '')
+    public function codeModelSearch(string $query, string $fieldcode = '', $where = [])
     {
         $results = [];
         $field = empty($fieldcode) ? $this->primaryColumn() : $fieldcode;
@@ -134,7 +142,7 @@ class Variante extends Base\ModelClass
             . " WHERE LOWER(v.referencia) LIKE '" . $find . "%'"
             . " OR v.codbarras = '" . $find . "'"
             . " OR LOWER(p.descripcion) LIKE '%" . $find . "%'"
-            . " ORDER BY v." . $field . " asc";
+            . " ORDER BY v." . $field . " ASC";
 
         foreach (self::$dataBase->selectLimit($sql, CodeModel::ALL_LIMIT) as $data) {
             $data['description'] = $this->getAttributeDescription(
@@ -259,6 +267,11 @@ class Variante extends Base\ModelClass
      */
     public function save()
     {
+        if ($this->margen > 0) {
+            $newPrice = $this->coste * (100 + $this->margen) / 100;
+            $this->precio = \round($newPrice, DinProducto::ROUND_DECIMALS);
+        }
+
         if (parent::save()) {
             $this->getProducto()->update();
             return true;
