@@ -102,7 +102,6 @@ class DocumentStitcher extends Controller
             return [];
         }
 
-
         $list = [];
         $modelClass = self::MODEL_NAMESPACE . $this->modelName;
         $model = new $modelClass();
@@ -239,7 +238,7 @@ class DocumentStitcher extends Controller
         $quantities = [];
         foreach ($this->documents as $doc) {
             if (null === $prototype) {
-                $prototype = $doc;
+                $prototype = clone $doc;
             } elseif ('true' === $this->request->request->get('extralines', '')) {
                 $this->addBlankLine($newLines, $doc);
             }
@@ -258,8 +257,12 @@ class DocumentStitcher extends Controller
                 $newLines[] = $line;
             }
         }
-
         if (null === $prototype || empty($newLines)) {
+            return;
+        }
+
+        /// allow plugins to do stuff on the prototype before save
+        if (false === $this->pipe('checkPrototype', $prototype, $newLines)) {
             return;
         }
 
