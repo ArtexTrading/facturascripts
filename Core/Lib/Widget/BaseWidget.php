@@ -87,7 +87,7 @@ class BaseWidget extends VisualItem
         $this->icon = $data['icon'] ?? '';
         $this->onclick = $data['onclick'] ?? '';
         $this->readonly = $data['readonly'] ?? 'false';
-        $this->required = isset($data['required']);
+        $this->required = isset($data['required']) ? \strtolower($data['required']) === 'true' : false;
         $this->type = $data['type'];
         $this->loadOptions($data['children']);
         $this->assets();
