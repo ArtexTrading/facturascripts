@@ -19,6 +19,7 @@
 namespace FacturaScripts\Core\Model\Base;
 
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
+use FacturaScripts\Dinamic\Lib\CommissionTools;
 use FacturaScripts\Dinamic\Lib\CustomerRiskTools;
 use FacturaScripts\Dinamic\Model\Cliente;
 use FacturaScripts\Dinamic\Model\Contacto;
@@ -403,14 +404,20 @@ abstract class SalesDocument extends TransformerDocument
      */
     protected function onChange($field)
     {
+        /// before parent checks
+        if ('codagente' === $field) {
+            return $this->onChangeAgent();
+        }
+
         if (false === parent::onChange($field)) {
             return false;
         }
 
+        /// after parent checks
         switch ($field) {
-            /// if address is changed and customer billing address is empty, then save new values
             case 'direccion':
                 $contact = new Contacto();
+                /// if address is changed and customer billing address is empty, then save new values
                 if ($contact->loadFromCode($this->idcontactofact) && empty($contact->direccion)) {
                     $contact->apartado = $this->apartado;
                     $contact->ciudad = $this->ciudad;
@@ -422,9 +429,9 @@ abstract class SalesDocument extends TransformerDocument
                 }
                 break;
 
-            /// if billing address is changed, then change all billing fields
             case 'idcontactofact':
                 $contact = new Contacto();
+                /// if billing address is changed, then change all billing fields
                 if ($contact->loadFromCode($this->idcontactofact)) {
                     $this->apartado = $contact->apartado;
                     $this->ciudad = $contact->ciudad;
@@ -435,6 +442,21 @@ abstract class SalesDocument extends TransformerDocument
                     return true;
                 }
                 return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 
+     * @return bool
+     */
+    protected function onChangeAgent()
+    {
+        if (null !== $this->codagente && $this->total > 0) {
+            $lines = $this->getLines();
+            $commissions = new CommissionTools();
+            $commissions->recalculate($this, $lines);
         }
 
         return true;
@@ -502,7 +524,7 @@ abstract class SalesDocument extends TransformerDocument
      */
     protected function setPreviousData(array $fields = [])
     {
-        $more = ['codcliente', 'direccion', 'idcontactofact'];
+        $more = ['codagente', 'codcliente', 'direccion', 'idcontactofact'];
         parent::setPreviousData(\array_merge($more, $fields));
     }
 }
