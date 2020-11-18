@@ -120,7 +120,10 @@ class InvoiceToAccounting extends AccountingClass
      */
     protected function addGoodsPurchaseLine($accountEntry)
     {
-        $purchaseAccount = $this->getSpecialSubAccount('COMPRA');
+        $rectifAccount = $this->getSpecialSubAccount('DEVCOM');
+        $purchaseAccount = (bool) $this->document->idfacturarect && $rectifAccount->exists() ? $rectifAccount :
+            $this->getSpecialSubAccount('COMPRA');
+
         $tool = new PurchasesDocLineAccount();
         foreach ($tool->getTotalsForDocument($this->document, $purchaseAccount->codsubcuenta) as $code => $total) {
             $subaccount = $this->getSubAccount($code);
@@ -151,7 +154,10 @@ class InvoiceToAccounting extends AccountingClass
      */
     protected function addGoodsSalesLine($accountEntry)
     {
-        $salesAccount = $this->getSpecialSubAccount('VENTAS');
+        $rectifAccount = $this->getSpecialSubAccount('DEVVEN');
+        $salesAccount = (bool) $this->document->idfacturarect && $rectifAccount->exists() ? $rectifAccount :
+            $this->getSpecialSubAccount('VENTAS');
+
         $tool = new SalesDocLineAccount();
         foreach ($tool->getTotalsForDocument($this->document, $salesAccount->codsubcuenta) as $code => $total) {
             $subaccount = $this->getSubAccount($code);
@@ -399,8 +405,12 @@ class InvoiceToAccounting extends AccountingClass
      */
     protected function purchaseAccountingEntry()
     {
+        $concept = $this->toolBox()->i18n()->trans('supplier-invoice') . ' ' . $this->document->codigo;
+        $concept .= $this->document->numproveedor ? ' (' . $this->document->numproveedor . ') - ' . $this->document->nombre :
+            ' - ' . $this->document->nombre;
+
         $accountEntry = new Asiento();
-        $this->setAccountingData($accountEntry, $this->toolBox()->i18n()->trans('supplier-invoice') . ' ' . $this->document->codigo);
+        $this->setAccountingData($accountEntry, $concept);
         if (false === $accountEntry->save()) {
             $this->toolBox()->i18nLog()->warning('accounting-entry-error');
             return;
@@ -425,9 +435,12 @@ class InvoiceToAccounting extends AccountingClass
      */
     protected function salesAccountingEntry()
     {
-        $accountEntry = new Asiento();
-        $this->setAccountingData($accountEntry, $this->toolBox()->i18n()->trans('customer-invoice') . ' ' . $this->document->codigo);
+        $concept = $this->toolBox()->i18n()->trans('customer-invoice') . ' ' . $this->document->codigo;
+        $concept .= $this->document->numero2 ? ' (' . $this->document->numero2 . ') - ' . $this->document->nombrecliente :
+            ' - ' . $this->document->nombrecliente;
 
+        $accountEntry = new Asiento();
+        $this->setAccountingData($accountEntry, $concept);
         if (false === $accountEntry->save()) {
             $this->toolBox()->i18nLog()->warning('accounting-entry-error');
             return;
