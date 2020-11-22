@@ -21,6 +21,7 @@ namespace FacturaScripts\Core\Controller;
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
 use FacturaScripts\Core\Lib\ExtendedController\BaseView;
 use FacturaScripts\Core\Lib\ExtendedController\EditController;
+use FacturaScripts\Dinamic\Model\Almacen;
 use FacturaScripts\Dinamic\Model\Page;
 use FacturaScripts\Dinamic\Model\RoleUser;
 use FacturaScripts\Dinamic\Model\User;
@@ -86,14 +87,35 @@ class EditUser extends EditController
     protected function createViews()
     {
         parent::createViews();
-        $this->setTabsPosition('bottom');
 
-        if ($this->user->admin) {
-            $this->addEditListView('EditRoleUser', 'RoleUser', 'roles', 'fas fa-address-card');
-
-            /// Disable column
-            $this->views['EditRoleUser']->disableColumn('user', true);
+        /// disable company column if there is only one company
+        if ($this->empresa->count() < 2) {
+            $this->views[$this->getMainViewName()]->disableColumn('company');
         }
+
+        /// disable warehouse column if there is only one company
+        $almacen = new Almacen();
+        if ($almacen->count() < 2) {
+            $this->views[$this->getMainViewName()]->disableColumn('warehouse');
+        }
+
+        $this->setTabsPosition('bottom');
+        if ($this->user->admin) {
+            $this->createViewsRole();
+        }
+    }
+
+    /**
+     * 
+     * @param string $viewName
+     */
+    protected function createViewsRole(string $viewName = 'EditRoleUser')
+    {
+        $this->addEditListView($viewName, 'RoleUser', 'roles', 'fas fa-address-card');
+        $this->views[$viewName]->setInLine('true');
+
+        /// Disable column
+        $this->views[$viewName]->disableColumn('user', true);
     }
 
     /**
@@ -154,7 +176,7 @@ class EditUser extends EditController
         if ($user->admin) {
             $pageModel = new Page();
             foreach ($pageModel->all([], ['name' => 'ASC'], 0, 0) as $page) {
-                if (!$page->showonmenu) {
+                if (false === $page->showonmenu) {
                     continue;
                 }
 
@@ -167,7 +189,7 @@ class EditUser extends EditController
         $roleUserModel = new RoleUser();
         foreach ($roleUserModel->all([new DataBaseWhere('nick', $user->nick)]) as $roleUser) {
             foreach ($roleUser->getRoleAccess() as $roleAccess) {
-                if (!$roleAccess->getPage()->showonmenu) {
+                if (false === $roleAccess->getPage()->showonmenu) {
                     continue;
                 }
 
@@ -197,7 +219,7 @@ class EditUser extends EditController
                 parent::loadData($viewName, $view);
                 $this->loadHomepageValues();
                 $this->loadLanguageValues();
-                if (!$this->allowUpdate()) {
+                if (false === $this->allowUpdate()) {
                     $this->setTemplate('Error/AccessDenied');
                 } elseif ($view->model->nick == $this->user->nick) {
                     /// prevent user self-destruction
@@ -212,7 +234,7 @@ class EditUser extends EditController
      */
     protected function loadHomepageValues()
     {
-        if (!$this->views['EditUser']->model->exists()) {
+        if (false === $this->views['EditUser']->model->exists()) {
             $this->views['EditUser']->disableColumn('homepage');
             return;
         }
