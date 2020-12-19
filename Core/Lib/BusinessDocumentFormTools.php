@@ -67,7 +67,7 @@ class BusinessDocumentFormTools extends DinBusinessDocumentTools
         $doc->total = \round($doc->neto + $doc->totalsuplidos + $doc->totaliva + $doc->totalrecargo - $doc->totalirpf, (int) \FS_NF0);
         return \json_encode([
             'doc' => $doc,
-            'lines' => $lines,
+            'lines' => $lines
         ]);
     }
 

@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2019 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2019-2020 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-namespace FacturaScripts\Core\Model\ModelView;
+namespace FacturaScripts\Core\Model\Join;
 
-use FacturaScripts\Core\Model\Base\ModelView;
+use FacturaScripts\Core\Model\Base\JoinModel;
 use FacturaScripts\Dinamic\Model\Asiento;
 use FacturaScripts\Dinamic\Model\Partida;
 
@@ -27,7 +27,7 @@ use FacturaScripts\Dinamic\Model\Partida;
  *
  * @author Carlos Garcia Gomez <carlos@facturascripts.com>
  */
-class PartidaAsiento extends ModelView
+class PartidaAsiento extends JoinModel
 {
 
     /**
@@ -56,7 +56,7 @@ class PartidaAsiento extends ModelView
             'haber' => 'partidas.haber',
             'idasiento' => 'partidas.idasiento',
             'idpartida' => 'partidas.idpartida',
-            'numero' => 'asientos.numero',
+            'numero' => 'asientos.numero'
         ];
     }
 

@@ -26,7 +26,7 @@ use SimpleXMLElement;
  *
  * @author Carlos García Gómez <carlos@facturascripts.com>
  */
-class PluginDeploy
+final class PluginDeploy
 {
 
     /**
@@ -188,6 +188,8 @@ class PluginDeploy
                 $this->createFolder(\FS_FOLDER . DIRECTORY_SEPARATOR . 'Dinamic' . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR . $fileName);
                 continue;
             } elseif ($fileInfo['filename'] === '' || !is_file($path . DIRECTORY_SEPARATOR . $fileName)) {
+                continue;
+            } elseif ('Trait.php' === substr($fileName, -9)) {
                 continue;
             }
 

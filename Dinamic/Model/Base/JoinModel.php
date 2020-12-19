@@ -4,6 +4,6 @@
  * Class created by Core/Base/PluginManager
  * @author FacturaScripts <carlos@facturascripts.com>
  */
-class ProductRelationTrait extends \FacturaScripts\Core\Model\Base\ProductRelationTrait
+abstract class JoinModel extends \FacturaScripts\Core\Model\Base\JoinModel
 {
 }

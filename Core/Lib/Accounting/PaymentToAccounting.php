@@ -85,6 +85,12 @@ class PaymentToAccounting extends AccountingClass
         /// Create account entry header
         $accEntry = new Asiento();
         $concept = $this->toolBox()->i18n()->trans('customer-payment-concept', ['%document%' => $this->receipt->getCode()]);
+
+        $invoice = $this->receipt->getInvoice();
+        $concept .= $invoice->numero2 ?
+            ' (' . $invoice->numero2 . ') - ' . $invoice->nombrecliente :
+            ' - ' . $invoice->nombrecliente;
+
         $this->setCommonData($accEntry, $concept);
         $accEntry->importe += $this->document->gastos;
         if (false === $accEntry->save()) {
@@ -160,6 +166,12 @@ class PaymentToAccounting extends AccountingClass
         /// Create account entry header
         $accEntry = new Asiento();
         $concept = $this->toolBox()->i18n()->trans('supplier-payment-concept', ['%document%' => $this->receipt->getCode()]);
+
+        $invoice = $this->receipt->getInvoice();
+        $concept .= $invoice->numproveedor ?
+            ' (' . $invoice->numproveedor . ') - ' . $invoice->nombre :
+            ' - ' . $invoice->nombre;
+
         $this->setCommonData($accEntry, $concept);
         if (false === $accEntry->save()) {
             $this->toolBox()->i18nLog()->warning('accounting-entry-error');

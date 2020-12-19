@@ -46,7 +46,10 @@
         <column name="last-ip" order="160">
             <widget type="text" fieldname="lastip" />
         </column>
-        <column name="last-activity" display="right" order="170">
+        <column name="creation-date" display="none" order="170">
+            <widget type="date" fieldname="creationdate"/>
+        </column>
+        <column name="last-activity" display="right" order="180">
             <widget type="datetime" fieldname="lastactivity" />
         </column>
     </columns>
