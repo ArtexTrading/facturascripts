@@ -18,6 +18,8 @@
  */
 namespace FacturaScripts\Core\App;
 
+use FacturaScripts\Core\Base\MyFilesToken;
+
 /**
  * Description of AppRouter
  *
@@ -129,6 +131,14 @@ final class AppRouter
             }
         }
 
+        /// MyFiles and token?
+        $token = \filter_input(INPUT_GET, 'myft');
+        if ('/MyFiles/' === \substr($uri, 0, 9) && $token && MyFilesToken::validate(\substr($uri, 1), $token)) {
+            \header('Content-Type: ' . $this->getMime($filePath));
+            \readfile($filePath);
+            return true;
+        }
+
         return false;
     }
 
@@ -142,11 +152,11 @@ final class AppRouter
     {
         $parts = \explode('.', $filePath);
         $safe = [
-            'css', 'csv', 'eot', 'gif', 'gz', 'ico', 'jpeg', 'jpg', 'js', 'json',
-            'map', 'pdf', 'png', 'sql', 'svg', 'ttf', 'woff', 'woff2', 'xls',
-            'xlsx', 'zip'
+            'avi', 'css', 'csv', 'eot', 'gif', 'gz', 'ico', 'jpeg', 'jpg', 'js',
+            'json', 'map', 'mkv', 'mp4', 'ogg', 'pdf', 'png', 'sql', 'svg',
+            'ttf', 'webm', 'woff', 'woff2', 'xls', 'xlsx', 'zip'
         ];
-        return \in_array(\end($parts), $safe, true);
+        return \count($parts) > 1 ? \in_array(\end($parts), $safe, true) : true;
     }
 
     /**

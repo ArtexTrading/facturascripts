@@ -21,6 +21,13 @@ var listViewDeleteConfirm = "";
 var listViewDeleteMessage = "";
 var listViewDeleteTitle = "";
 
+function listViewCheckboxes(viewName) {
+    var checked = $("#form" + viewName + " .listActionCB").prop("checked");
+    $("#form" + viewName + " .listAction").each(function () {
+        $(this).prop("checked", checked);
+    });
+}
+
 function listViewDelete(viewName) {
     bootbox.confirm({
         title: listViewDeleteTitle,
@@ -47,8 +54,9 @@ function listViewDelete(viewName) {
 
 function listViewPrintAction(viewName, option) {
     $("#form" + viewName + " :input[name=\"action\"]").val('export');
-    $("#form" + viewName + "").append('<input type="hidden" name="option" value="' + option + '"/>');
+    $("#form" + viewName).append('<input type="hidden" name="option" value="' + option + '"/>');
     $("#form" + viewName).submit();
+    $("#form" + viewName + " :input[name=\"action\"]").val('');
 }
 
 function listViewSetAction(viewName, value) {
@@ -78,11 +86,6 @@ function listViewShowFilters(viewName) {
 }
 
 $(document).ready(function () {
-    // set/unset all delete checkbox
-    $(".listActionCB").click(function () {
-        var checked = $(this).prop("checked");
-        $(".listAction").prop("checked", checked);
-    });
     // disable enter key press
     $(".noEnterKey").keypress(function (e) {
         return !(e.which == 13 || e.keyCode == 13);
