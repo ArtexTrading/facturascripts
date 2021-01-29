@@ -117,6 +117,7 @@ abstract class TransformerDocument extends BusinessDocument
     public function delete()
     {
         if (\count($this->childrenDocuments()) > 0) {
+            $this->toolBox()->i18nLog()->warning('non-editable-document');
             return false;
         }
 
@@ -142,10 +143,10 @@ abstract class TransformerDocument extends BusinessDocument
             return false;
         }
 
-        /// load parents and remove relations from DocTransformation
+        /// load parents, remove relations and update servido column
         $parents = $this->parentDocuments();
         $docTransformation = new DocTransformation();
-        $docTransformation->deleteFrom($this->modelClassName(), $this->primaryColumnValue());
+        $docTransformation->deleteFrom($this->modelClassName(), $this->primaryColumnValue(), true);
 
         /// change parent doc status
         foreach ($parents as $parent) {
@@ -171,7 +172,7 @@ abstract class TransformerDocument extends BusinessDocument
      */
     public function getAvaliableStatus()
     {
-        if (!isset(self::$estados)) {
+        if (null === self::$estados) {
             $statusModel = new EstadoDocumento();
             self::$estados = $statusModel->all([], [], 0, 0);
         }
@@ -261,7 +262,7 @@ abstract class TransformerDocument extends BusinessDocument
      * 
      * @param bool $value
      */
-    public function setDocumentGeneration($value)
+    public function setDocumentGeneration(bool $value)
     {
         self::$documentGeneration = $value;
     }
@@ -275,24 +276,41 @@ abstract class TransformerDocument extends BusinessDocument
      */
     protected function onChange($field)
     {
-        if (!$this->editable && !$this->previousData['editable'] && $field != 'idestado') {
+        if (false === $this->editable && false === $this->previousData['editable'] && $field != 'idestado') {
             $this->toolBox()->i18nLog()->warning('non-editable-document');
             return false;
+        } elseif ($field !== 'idestado') {
+            return parent::onChange($field);
         }
 
-        if ($field === 'idestado') {
-            $status = $this->getStatus();
+        $status = $this->getStatus();
+        if (empty($status->generadoc) || false === self::$documentGeneration) {
+            /// update lines to update stock
             foreach ($this->getLines() as $line) {
                 $line->actualizastock = $status->actualizastock;
                 $line->save();
             }
-            $docGenerator = new BusinessDocumentGenerator();
-            if (!empty($status->generadoc) && self::$documentGeneration && !$docGenerator->generate($this, $status->generadoc)) {
-                return false;
-            }
+            /// do not generate a new document
+            return parent::onChange($field);
         }
 
-        return parent::onChange($field);
+        /// update lines to update stock and break down quantities
+        $newLines = [];
+        $quantities = [];
+        foreach ($this->getLines() as $line) {
+            if ($line->servido < $line->cantidad) {
+                $quantities[$line->primaryColumnValue()] = $line->cantidad - $line->servido;
+                $newLines[] = $line;
+            }
+
+            $line->actualizastock = $status->actualizastock;
+            $line->servido = $line->cantidad;
+            $line->save();
+        }
+
+        /// generate the new document
+        $generator = new BusinessDocumentGenerator();
+        return $generator->generate($this, $status->generadoc, $newLines, $quantities) ? parent::onChange($field) : false;
     }
 
     /**
