@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2013-2019 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2013-2021 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -154,5 +154,18 @@ class Balance extends Base\ModelClass
         $this->descripcion4 = $utils->noHtml($this->descripcion4);
         $this->descripcion4ba = $utils->noHtml($this->descripcion4ba);
         return parent::test();
+    }
+
+    /**
+     * Returns the url where to see / modify the data.
+     *
+     * @param string $type
+     * @param string $list
+     *
+     * @return string
+     */
+    public function url(string $type = 'auto', string $list = 'ListReportAccounting?activetab=List'): string
+    {
+        return parent::url($type, $list);
     }
 }
