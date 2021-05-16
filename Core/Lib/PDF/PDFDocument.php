@@ -44,6 +44,8 @@ use FacturaScripts\Dinamic\Model\ReciboCliente;
 abstract class PDFDocument extends PDFCore
 {
 
+    const INVOICE_TOTALS_Y = 200;
+
     /**
      *
      * @var array
@@ -92,21 +94,21 @@ abstract class PDFDocument extends PDFCore
 
     /**
      * 
-     * @param ReciboCliente $receipt
+     * @param BusinessDocument|ReciboCliente $receipt
      *
      * @return string
      */
     protected function getBankData($receipt): string
     {
         $paymentMethod = new FormaPago();
-        if (!$paymentMethod->loadFromCode($receipt->codpago)) {
+        if (false === $paymentMethod->loadFromCode($receipt->codpago)) {
             return '-';
         }
 
         $cuentaBancoCli = new CuentaBancoCliente();
         $where = [new DataBaseWhere('codcliente', $receipt->codcliente)];
-        if ($paymentMethod->domiciliado && $cuentaBancoCli->loadFromCode('', $where)) {
-            return $paymentMethod->descripcion . ' : ' . $cuentaBancoCli->getIban(true);
+        if ($paymentMethod->domiciliado && $cuentaBancoCli->loadFromCode('', $where, ['principal' => 'DESC'])) {
+            return $paymentMethod->descripcion . ' : ' . $cuentaBancoCli->getIban(true, true);
         }
 
         $cuentaBanco = new CuentaBanco();
@@ -280,6 +282,37 @@ abstract class PDFDocument extends PDFCore
 
         $this->newPage();
 
+        /// taxes
+        $taxHeaders = [
+            'tax' => $this->i18n->trans('tax'),
+            'taxbase' => $this->i18n->trans('tax-base'),
+            'taxp' => $this->i18n->trans('percentage'),
+            'taxamount' => $this->i18n->trans('amount'),
+            'taxsurchargep' => $this->i18n->trans('re'),
+            'taxsurcharge' => $this->i18n->trans('amount')
+        ];
+        $taxRows = $this->getTaxesRows($model);
+        $taxTableOptions = [
+            'cols' => [
+                'tax' => ['justification' => 'right'],
+                'taxbase' => ['justification' => 'right'],
+                'taxp' => ['justification' => 'right'],
+                'taxamount' => ['justification' => 'right'],
+                'taxsurchargep' => ['justification' => 'right'],
+                'taxsurcharge' => ['justification' => 'right']
+            ],
+            'shadeCol' => [0.95, 0.95, 0.95],
+            'shadeHeadingCol' => [0.95, 0.95, 0.95],
+            'width' => $this->tableWidth
+        ];
+        if (count($taxRows) > 1) {
+            $this->removeEmptyCols($taxRows, $taxHeaders, $this->numberTools->format(0));
+            $this->pdf->ezTable($taxRows, $taxHeaders, '', $taxTableOptions);
+            $this->pdf->ezText("\n");
+        } elseif ($this->pdf->ezPageCount < 2 && $this->pdf->y > static::INVOICE_TOTALS_Y) {
+            $this->pdf->y = static::INVOICE_TOTALS_Y;
+        }
+
         /// subtotals
         $headers = [
             'currency' => $this->i18n->trans('currency'),
@@ -329,35 +362,8 @@ abstract class PDFDocument extends PDFCore
         /// receipts
         if ($model->modelClassName() === 'FacturaCliente') {
             $this->insertInvoiceReceipts($model);
-        }
-
-        /// taxes
-        $taxHeaders = [
-            'tax' => $this->i18n->trans('tax'),
-            'taxbase' => $this->i18n->trans('tax-base'),
-            'taxp' => $this->i18n->trans('percentage'),
-            'taxamount' => $this->i18n->trans('amount'),
-            'taxsurchargep' => $this->i18n->trans('re'),
-            'taxsurcharge' => $this->i18n->trans('amount')
-        ];
-        $taxRows = $this->getTaxesRows($model);
-        $taxTableOptions = [
-            'cols' => [
-                'tax' => ['justification' => 'right'],
-                'taxbase' => ['justification' => 'right'],
-                'taxp' => ['justification' => 'right'],
-                'taxamount' => ['justification' => 'right'],
-                'taxsurchargep' => ['justification' => 'right'],
-                'taxsurcharge' => ['justification' => 'right']
-            ],
-            'shadeCol' => [0.95, 0.95, 0.95],
-            'shadeHeadingCol' => [0.95, 0.95, 0.95],
-            'width' => $this->tableWidth
-        ];
-        if (count($taxRows) > 1) {
-            $this->removeEmptyCols($taxRows, $taxHeaders, $this->numberTools->format(0));
-            $this->pdf->ezText("\n");
-            $this->pdf->ezTable($taxRows, $taxHeaders, $this->i18n->trans('taxes'), $taxTableOptions);
+        } elseif (isset($model->codcliente)) {
+            $this->insertInvoicePayMehtod($model);
         }
 
         if (!empty($this->format->texto)) {
@@ -540,12 +546,39 @@ abstract class PDFDocument extends PDFCore
      * 
      * @param FacturaCliente $invoice
      */
+    protected function insertInvoicePayMehtod($invoice)
+    {
+        $headers = [
+            'method' => $this->i18n->trans('payment-method'),
+            'expiration' => $this->i18n->trans('expiration')
+        ];
+
+        $expiration = isset($invoice->finoferta) ? $invoice->finoferta : '';
+        $rows = [
+            ['method' => $this->getBankData($invoice), 'expiration' => $expiration]
+        ];
+
+        $tableOptions = [
+            'cols' => [
+                'method' => ['justification' => 'left'],
+                'expiration' => ['justification' => 'right']
+            ],
+            'shadeCol' => [0.95, 0.95, 0.95],
+            'shadeHeadingCol' => [0.95, 0.95, 0.95],
+            'width' => $this->tableWidth
+        ];
+        $this->pdf->ezText("\n");
+        $this->pdf->ezTable($rows, $headers, '', $tableOptions);
+    }
+
+    /**
+     * 
+     * @param FacturaCliente $invoice
+     */
     protected function insertInvoiceReceipts($invoice)
     {
         $receipts = $invoice->getReceipts();
         if (count($receipts) > 0) {
-            $this->newPage();
-
             $headers = [
                 'numero' => $this->i18n->trans('receipt'),
                 'bank' => $this->i18n->trans('payment-method'),
@@ -574,6 +607,7 @@ abstract class PDFDocument extends PDFCore
                 'shadeHeadingCol' => [0.95, 0.95, 0.95],
                 'width' => $this->tableWidth
             ];
+            $this->pdf->ezText("\n");
             $this->pdf->ezTable($rows, $headers, '', $tableOptions);
         }
     }

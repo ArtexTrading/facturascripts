@@ -98,11 +98,7 @@ class ReportTaxes extends Controller
             return;
         }
 
-        $this->setTemplate(false);
-        $exportManager = new ExportManager();
-        $exportManager->newDoc($this->format, $this->toolBox()->i18n()->trans('taxes'));
-
-        /// add lines
+        /// prepare lines
         $lastcode = '';
         $lines = [];
         foreach ($data as $row) {
@@ -121,15 +117,14 @@ class ReportTaxes extends Controller
                 'totalrecargo' => $this->toolBox()->numbers()->format($row['totalrecargo']),
                 'irpf' => $this->toolBox()->numbers()->format($row['irpf']),
                 'totalirpf' => $this->toolBox()->numbers()->format($row['totalirpf']),
-                'suplidos' => $this->toolBox()->numbers()->format($row['suplidos'])
+                'suplidos' => $this->toolBox()->numbers()->format($row['suplidos']),
+                'total' => $hide ? '' : $this->toolBox()->numbers()->format($row['total'])
             ];
 
             $lastcode = $row['codigo'];
         }
-        $headers = empty($lines) ? [] : \array_keys(\end($lines));
-        $exportManager->addTablePage($headers, $lines);
 
-        /// add totals
+        /// prepare totals
         $totals = [];
         foreach ($this->getTotals($data) as $row) {
             $totals[] = [
@@ -143,10 +138,9 @@ class ReportTaxes extends Controller
                 'suplidos' => $this->toolBox()->coins()->format($row['suplidos'])
             ];
         }
-        $headtotals = empty($totals) ? [] : \array_keys(\end($totals));
-        $exportManager->addTablePage($headtotals, $totals);
 
-        $exportManager->show($this->response);
+        $this->setTemplate(false);
+        $this->processLayout($lines, $totals);
     }
 
     /**
@@ -159,7 +153,8 @@ class ReportTaxes extends Controller
         $numCol = \strtolower(\FS_DB_TYPE) == 'postgresql' ? 'CAST(f.numero as integer)' : 'CAST(f.numero as unsigned)';
         switch ($this->source) {
             case 'purchases':
-                $sql .= 'SELECT f.codserie, f.codigo, f.numproveedor AS numero2, f.fecha, f.nombre, f.cifnif, l.pvptotal, l.iva, l.recargo, l.irpf, l.suplido'
+                $sql .= 'SELECT f.codserie, f.codigo, f.numproveedor AS numero2, f.fecha, f.nombre, f.cifnif, l.pvptotal,'
+                    . ' l.iva, l.recargo, l.irpf, l.suplido, f.total'
                     . ' FROM lineasfacturasprov AS l'
                     . ' LEFT JOIN facturasprov AS f ON l.idfactura = f.idfactura '
                     . ' WHERE f.idempresa = ' . $this->dataBase->var2str($this->idempresa)
@@ -169,7 +164,8 @@ class ReportTaxes extends Controller
                 break;
 
             case 'sales':
-                $sql .= 'SELECT f.codserie, f.codigo, f.numero2, f.fecha, f.nombrecliente AS nombre, f.cifnif, l.pvptotal, l.iva, l.recargo, l.irpf, l.suplido'
+                $sql .= 'SELECT f.codserie, f.codigo, f.numero2, f.fecha, f.nombrecliente AS nombre, f.cifnif, l.pvptotal,'
+                    . 'l.iva, l.recargo, l.irpf, l.suplido, f.total'
                     . ' FROM lineasfacturascli AS l'
                     . ' LEFT JOIN facturascli AS f ON l.idfactura = f.idfactura '
                     . ' WHERE f.idempresa = ' . $this->dataBase->var2str($this->idempresa)
@@ -208,7 +204,8 @@ class ReportTaxes extends Controller
                 'totalrecargo' => (float) $row['recargo'] * $row['pvptotal'] / 100,
                 'irpf' => (float) $row['irpf'],
                 'totalirpf' => (float) $row['irpf'] * $row['pvptotal'] / 100,
-                'suplidos' => (float) $row['suplido'] * $row['pvptotal']
+                'suplidos' => (float) $row['suplido'] * $row['pvptotal'],
+                'total' => (float) $row['total']
             ];
         }
 
@@ -266,5 +263,100 @@ class ReportTaxes extends Controller
         $this->idempresa = (int) $this->request->request->get('idempresa', $this->empresa->idempresa);
         $this->format = $this->request->request->get('format');
         $this->source = $this->request->request->get('source');
+    }
+
+    /**
+     * 
+     * @param array $lines
+     * @param array $totals
+     */
+    protected function processLayout(&$lines, &$totals)
+    {
+        $i18n = $this->toolBox()->i18n();
+        $exportManager = new ExportManager();
+        $exportManager->setOrientation('landscape');
+        $exportManager->newDoc($this->format, $i18n->trans('taxes'));
+
+        /// add information table
+        $exportManager->addTablePage([$i18n->trans('report'), $i18n->trans('from-date'), $i18n->trans('until-date')], [
+            [
+                $i18n->trans('report') => $i18n->trans('taxes') . ' ' . $i18n->trans($this->source),
+                $i18n->trans('from-date') => \date(User::DATE_STYLE, \strtotime($this->datefrom)),
+                $i18n->trans('until-date') => \date(User::DATE_STYLE, \strtotime($this->dateto))
+            ]
+        ]);
+
+        /// add lines table
+        $this->reduceLines($lines);
+        $headers = empty($lines) ? [] : \array_keys(\end($lines));
+        $exportManager->addTablePage($headers, $lines);
+
+        /// add totals table
+        $headtotals = empty($totals) ? [] : \array_keys(\end($totals));
+        $exportManager->addTablePage($headtotals, $totals);
+
+        $exportManager->show($this->response);
+    }
+
+    /**
+     * 
+     * @param array $lines
+     */
+    protected function reduceLines(&$lines)
+    {
+        $zero = $this->toolBox()->numbers()->format(0);
+
+        $numero2 = $recargo = $totalrecargo = $irpf = $totalirpf = $suplidos = false;
+        foreach ($lines as $row) {
+            if (!empty($row['numero2'])) {
+                $numero2 = true;
+            }
+
+            if ($row['recargo'] !== $zero) {
+                $recargo = true;
+            }
+
+            if ($row['totalrecargo'] !== $zero) {
+                $totalrecargo = true;
+            }
+
+            if ($row['irpf'] !== $zero) {
+                $irpf = true;
+            }
+
+            if ($row['totalirpf'] !== $zero) {
+                $totalirpf = true;
+            }
+
+            if ($row['suplidos'] !== $zero) {
+                $suplidos = true;
+            }
+        }
+
+        foreach (\array_keys($lines) as $key) {
+            if (false === $numero2) {
+                unset($lines[$key]['numero2']);
+            }
+
+            if (false === $recargo) {
+                unset($lines[$key]['recargo']);
+            }
+
+            if (false === $totalrecargo) {
+                unset($lines[$key]['totalrecargo']);
+            }
+
+            if (false === $irpf) {
+                unset($lines[$key]['irpf']);
+            }
+
+            if (false === $totalirpf) {
+                unset($lines[$key]['totalirpf']);
+            }
+
+            if (false === $suplidos) {
+                unset($lines[$key]['suplidos']);
+            }
+        }
     }
 }
