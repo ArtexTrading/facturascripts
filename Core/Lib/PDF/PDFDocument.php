@@ -22,6 +22,7 @@ use FacturaScripts\Core\App\AppSettings;
 use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
 use FacturaScripts\Core\Base\Utils;
 use FacturaScripts\Core\Model\Base\BusinessDocument;
+use FacturaScripts\Dinamic\Model\AgenciaTransporte;
 use FacturaScripts\Dinamic\Model\AttachedFile;
 use FacturaScripts\Dinamic\Model\Contacto;
 use FacturaScripts\Dinamic\Model\CuentaBanco;
@@ -100,23 +101,25 @@ abstract class PDFDocument extends PDFCore
      */
     protected function getBankData($receipt): string
     {
-        $paymentMethod = new FormaPago();
-        if (false === $paymentMethod->loadFromCode($receipt->codpago)) {
+        $payMethod = new FormaPago();
+        if (false === $payMethod->loadFromCode($receipt->codpago)) {
             return '-';
         }
 
-        $cuentaBancoCli = new CuentaBancoCliente();
+        $cuentaBcoCli = new CuentaBancoCliente();
         $where = [new DataBaseWhere('codcliente', $receipt->codcliente)];
-        if ($paymentMethod->domiciliado && $cuentaBancoCli->loadFromCode('', $where, ['principal' => 'DESC'])) {
-            return $paymentMethod->descripcion . ' : ' . $cuentaBancoCli->getIban(true, true);
+        if ($payMethod->domiciliado && $cuentaBcoCli->loadFromCode('', $where, ['principal' => 'DESC'])) {
+            return $payMethod->descripcion . ' : ' . $cuentaBcoCli->getIban(true, true);
         }
 
-        $cuentaBanco = new CuentaBanco();
-        if (!empty($paymentMethod->codcuentabanco) && $cuentaBanco->loadFromCode($paymentMethod->codcuentabanco)) {
-            return $paymentMethod->descripcion . ' : ' . $cuentaBanco->getIban(true);
+        $cuentaBco = new CuentaBanco();
+        if (empty($payMethod->codcuentabanco) || false === $cuentaBco->loadFromCode($payMethod->codcuentabanco) || empty($cuentaBco->iban)) {
+            return $payMethod->descripcion;
         }
 
-        return $paymentMethod->descripcion;
+        $iban = $cuentaBco->getIban(true);
+        $blocks = \explode(' ', $iban);
+        return $payMethod->descripcion . ' : ' . $iban . ' (' . $this->i18n->trans('last-block') . ' ' . \end($blocks) . ')';
     }
 
     /**
@@ -399,23 +402,25 @@ abstract class PDFDocument extends PDFCore
         $subject = $model->getSubject();
         $tipoidfiscal = empty($subject->tipoidfiscal) ? $this->i18n->trans('cifnif') : $subject->tipoidfiscal;
         $tableData = [
-            ['key' => $this->i18n->trans('date'), 'value' => $model->fecha],
             ['key' => $headerData['subject'], 'value' => Utils::fixHtml($model->{$headerData['fieldName']})],
-            ['key' => $this->i18n->trans('number'), 'value' => $model->numero],
+            ['key' => $this->i18n->trans('date'), 'value' => $model->fecha],
+            ['key' => $this->i18n->trans('address'), 'value' => empty($model->direccion) ? '' : $this->combineAddress($model)],
+            ['key' => $this->i18n->trans('code'), 'value' => $model->codigo],
             ['key' => $tipoidfiscal, 'value' => $model->cifnif],
+            ['key' => $this->i18n->trans('number'), 'value' => $model->numero],
             ['key' => $this->i18n->trans('serie'), 'value' => $model->codserie]
         ];
-        if (empty($model->cifnif)) {
-            unset($tableData[3]);
-        }
-
-        if (!empty($model->direccion)) {
-            $tableData[] = ['key' => $this->i18n->trans('address'), 'value' => $this->combineAddress($model)];
-        }
 
         /// rectified invoice?
         if (isset($model->codigorect) && !empty($model->codigorect)) {
-            array_unshift($tableData, ['key' => $this->i18n->trans('original'), 'value' => $model->codigorect]);
+            $tableData[3] = ['key' => $this->i18n->trans('original'), 'value' => $model->codigorect];
+        } elseif (\property_exists($model, 'numproveedor') && $model->numproveedor) {
+            $tableData[3] = ['key' => $this->i18n->trans('numsupplier'), 'value' => $model->numproveedor];
+        } elseif (\property_exists($model, 'numpero2') && $model->numero2) {
+            $tableData[3] = ['key' => $this->i18n->trans('number2'), 'value' => $model->numero2];
+        } else {
+            $tableData[3] = ['key' => $this->i18n->trans('serie'), 'value' => $model->codserie];
+            unset($tableData[6]);
         }
 
         $tableOptions = [
@@ -428,7 +433,7 @@ abstract class PDFDocument extends PDFCore
         $this->insertParalellTable($tableData, '', $tableOptions);
         $this->pdf->ezText('');
 
-        if (!empty($model->idcontactoenv) && $model->idcontactoenv != $model->idcontactofact) {
+        if (!empty($model->idcontactoenv) && ($model->idcontactoenv != $model->idcontactofact || !empty($model->codtrans))) {
             $this->insertBusinessDocShipping($model);
         }
     }
@@ -446,9 +451,13 @@ abstract class PDFDocument extends PDFCore
         $contacto = new Contacto();
         if ($contacto->loadFromCode($model->idcontactoenv)) {
             $name = Utils::fixHtml($contacto->nombre) . ' ' . Utils::fixHtml($contacto->apellidos);
+            $carrier = new AgenciaTransporte();
+            $carrierName = $carrier->loadFromCode($model->codtrans) ? $carrier->nombre : '-';
             $tableData = [
                 ['key' => $this->i18n->trans('name'), 'value' => $name],
+                ['key' => $this->i18n->trans('carrier'), 'value' => $carrierName],
                 ['key' => $this->i18n->trans('address'), 'value' => $this->combineAddress($contacto)],
+                ['key' => $this->i18n->trans('tracking-code'), 'value' => $model->codigoenv]
             ];
 
             $tableOptions = [
