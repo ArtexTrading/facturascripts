@@ -161,7 +161,7 @@ class CopyModel extends Controller
         $tool = new BusinessDocumentTools();
         $tool->recalculate($newDoc);
         if (false === $newDoc->save()) {
-            $this->toolBox()->i18nLog()->warning('record-updated-error');
+            $this->toolBox()->i18nLog()->warning('record-save-error');
             $this->dataBase->rollback();
             return;
         }
@@ -193,39 +193,15 @@ class CopyModel extends Controller
         $newDoc->numproveedor = $this->request->request->get('numproveedor');
         $newDoc->observaciones = $this->request->request->get('observaciones');
         if (false === $newDoc->save()) {
-            $this->toolBox()->i18nLog()->warning('record-updated-error');
+            $this->toolBox()->i18nLog()->warning('record-save-error');
             $this->dataBase->rollback();
             return;
         }
 
         foreach ($this->model->getLines() as $line) {
-            if (!empty($line->referencia)) {
-                $newLine = $newDoc->getNewProductLine($line->referencia);
-                $newLine->cantidad = $line->cantidad;
-                $newLine->pvpunitario = $line->pvpunitario;
-                if (false === $newLine->getProducto()->exists()) {
-                    $this->toolBox()->i18nLog()->warning('product-not-found : ' . $line->referencia);
-                    $this->dataBase->rollback();
-                    return;
-                } elseif (false === $newLine->save()) {
-                    $this->toolBox()->i18nLog()->warning('record-updated-error');
-                    $this->dataBase->rollback();
-                    return;
-                }
-                continue;
-            }
-
-            $newLine = $newDoc->getNewLine();
-            $newLine->cantidad = $line->cantidad;
-            $newLine->codimpuesto = $line->codimpuesto;
-            $newLine->descripcion = $line->descripcion;
-            $newLine->irpf = $line->irpf;
-            $newLine->iva = $line->iva;
-            $newLine->pvpunitario = $line->pvpunitario;
-            $newLine->recargo = $line->recargo;
-            $newLine->suplido = $line->suplido;
+            $newLine = $newDoc->getNewLine($line->toArray());
             if (false === $newLine->save()) {
-                $this->toolBox()->i18nLog()->warning('record-updated-error');
+                $this->toolBox()->i18nLog()->warning('record-save-error');
                 $this->dataBase->rollback();
                 return;
             }
@@ -256,38 +232,15 @@ class CopyModel extends Controller
         $newDoc->numero2 = $this->request->request->get('numero2');
         $newDoc->observaciones = $this->request->request->get('observaciones');
         if (false === $newDoc->save()) {
-            $this->toolBox()->i18nLog()->warning('record-updated-error');
+            $this->toolBox()->i18nLog()->warning('record-save-error');
             $this->dataBase->rollback();
             return;
         }
 
         foreach ($this->model->getLines() as $line) {
-            if (!empty($line->referencia)) {
-                $newLine = $newDoc->getNewProductLine($line->referencia);
-                $newLine->cantidad = $line->cantidad;
-                if (false === $newLine->getProducto()->exists()) {
-                    $this->toolBox()->i18nLog()->warning('product-not-found : ' . $line->referencia);
-                    $this->dataBase->rollback();
-                    return;
-                } elseif (false === $newLine->save()) {
-                    $this->toolBox()->i18nLog()->warning('record-updated-error');
-                    $this->dataBase->rollback();
-                    return;
-                }
-                continue;
-            }
-
-            $newLine = $newDoc->getNewLine();
-            $newLine->cantidad = $line->cantidad;
-            $newLine->codimpuesto = $line->codimpuesto;
-            $newLine->descripcion = $line->descripcion;
-            $newLine->irpf = $line->irpf;
-            $newLine->iva = $line->iva;
-            $newLine->pvpunitario = $line->pvpunitario;
-            $newLine->recargo = $line->recargo;
-            $newLine->suplido = $line->suplido;
+            $newLine = $newDoc->getNewLine($line->toArray());
             if (false === $newLine->save()) {
-                $this->toolBox()->i18nLog()->warning('record-updated-error');
+                $this->toolBox()->i18nLog()->warning('record-save-error');
                 $this->dataBase->rollback();
                 return;
             }
