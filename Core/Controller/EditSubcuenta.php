@@ -24,13 +24,14 @@ use FacturaScripts\Core\Lib\ExtendedController\EditController;
 use FacturaScripts\Dinamic\Lib\Accounting\Ledger;
 use FacturaScripts\Dinamic\Model\Cuenta;
 use FacturaScripts\Dinamic\Model\Ejercicio;
+use FacturaScripts\Dinamic\Model\Partida;
 use FacturaScripts\Dinamic\Model\Subcuenta;
 
 /**
  * Controller to edit a single item from the SubCuenta model
  *
  * @author Carlos García Gómez          <carlos@facturascripts.com>
- * @author Artex Trading sa             <jcuello@artextrading.com>
+ * @author Jose Antonio Cuello Principal <yopli2000@gmail.com>
  * @author PC REDNET S.L.               <luismi@pcrednet.com>
  * @author Cristo M. Estévez Hernández  <cristom.estevez@gmail.com>
  */
@@ -86,6 +87,20 @@ class EditSubcuenta extends EditController
         $this->views[$viewName]->addOrderBy(['fecha', 'numero'], 'date', 2);
         $this->views[$viewName]->addSearchFields(['partidas.concepto']);
 
+        $this->addButton($viewName, [
+            'action' => 'dot-accounting-on',
+            'color' => 'info',
+            'icon' => 'fas fa-check-double',
+            'label' => 'checked',
+        ]);
+
+        $this->addButton($viewName, [
+            'action' => 'dot-accounting-off',
+            'color' => 'warning',
+            'icon' => 'far fa-square',
+            'label' => 'unchecked',
+        ]);
+
         /// disable column
         $this->views[$viewName]->disableColumn('subaccount');
 
@@ -99,9 +114,8 @@ class EditSubcuenta extends EditController
     protected function createViews()
     {
         parent::createViews();
-        $this->setTabsPosition('bottom');
-
         $this->createDepartureView();
+        $this->setTabsPosition('bottom');
     }
 
     /**
@@ -122,9 +136,14 @@ class EditSubcuenta extends EditController
                 }
                 return true;
 
-            default:
-                return parent::execPreviousAction($action);
+            case 'dot-accounting-off':
+                return $this->dotAccountingAction(false);
+
+            case 'dot-accounting-on':
+                return $this->dotAccountingAction(true);
         }
+
+        return parent::execPreviousAction($action);
     }
 
     /**
@@ -197,6 +216,29 @@ class EditSubcuenta extends EditController
             $view->model->codejercicio = $cuenta->codejercicio;
             $view->model->idcuenta = $cuenta->idcuenta;
         }
+    }
+
+    /**
+     * Set dotted status to indicated value.
+     *
+     * @param bool $value
+     */
+    private function dotAccountingAction(bool $value)
+    {
+        $ids = $this->request->request->get('code', []);
+        if (empty($ids)) {
+            $this->toolBox()->i18nLog()->warning('no-selected-item');
+            return false;
+        }
+
+        $where = [new DataBaseWhere('idpartida', \implode(',', $ids), 'IN')];
+        $partida = new Partida();
+        foreach ($partida->all($where) as $row) {
+            $row->setDottedStatus($value);
+        }
+
+        $this->toolBox()->i18nLog()->notice('record-updated-correctly');
+        return true;
     }
 
     /**
